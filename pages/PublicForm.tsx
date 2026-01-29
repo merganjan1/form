@@ -124,6 +124,20 @@ const PublicForm: React.FC = () => {
                 rows={2}
               />
             )}
+
+            {q.type === QuestionType.DROPDOWN && (
+              <select 
+                required={q.required}
+                value={answers[q.id] || ''}
+                onChange={(e) => handleInputChange(q.id, e.target.value)}
+                className="w-full border-b border-gray-200 focus:border-[#003366] focus:outline-none pb-2 transition bg-transparent cursor-pointer"
+              >
+                <option value="">-- Variantni tanlang --</option>
+                {q.options?.map(opt => (
+                  <option key={opt.id} value={opt.text}>{opt.text}</option>
+                ))}
+              </select>
+            )}
           </div>
         ))}
 

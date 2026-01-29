@@ -1,11 +1,10 @@
 
 import React from 'react';
-import { User } from 'firebase/auth';
-import { signInWithGoogle, logout } from '../firebase';
+import { signInWithGoogle, logout, MockUser } from '../firebase';
 import { Link } from 'react-router-dom';
 
 interface HeaderProps {
-  user: User | null;
+  user: MockUser | null;
 }
 
 const Header: React.FC<HeaderProps> = ({ user }) => {
