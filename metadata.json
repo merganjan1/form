@@ -1,0 +1,8 @@
+{
+  "name": "Gemini Forms",
+  "description": "A powerful, full-stack Google Forms clone with dynamic form building, real-time responses, and Google Authentication.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
