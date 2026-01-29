@@ -10,6 +10,8 @@ const FormBuilder: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [form, setForm] = useState<Form | null>(null);
   const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [responsesCount, setResponsesCount] = useState(0);
   const [showSendModal, setShowSendModal] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -53,6 +55,49 @@ const FormBuilder: React.FC = () => {
     setForm(updatedForm);
     setActiveQuestionId(newQuestion.id);
     formService.updateForm(form.id, updatedForm);
+  };
+
+  // Drag & Drop handlers for reordering questions
+  const handleDragStart = (e: React.DragEvent, qid: string) => {
+    e.dataTransfer.setData('text/plain', qid);
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggingId(qid);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    // Necessary to allow drop
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDragEnter = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    if (dragOverId !== targetId) setDragOverId(targetId);
+  };
+
+  const handleDragLeave = (e: React.DragEvent, targetId: string) => {
+    // when leaving an item, clear indicator if leaving that item
+    if (dragOverId === targetId) setDragOverId(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    const sourceId = e.dataTransfer.getData('text/plain');
+    if (!form || !sourceId) return;
+    if (sourceId === targetId) return;
+
+    const questions = [...form.questions];
+    const sourceIndex = questions.findIndex(q => q.id === sourceId);
+    const targetIndex = questions.findIndex(q => q.id === targetId);
+    if (sourceIndex === -1 || targetIndex === -1) return;
+
+    const [moved] = questions.splice(sourceIndex, 1);
+    questions.splice(targetIndex, 0, moved);
+
+    const updatedForm = { ...form, questions };
+    setForm(updatedForm);
+    formService.updateForm(form.id, updatedForm);
+    setDraggingId(null);
   };
 
   const updateQuestion = (qid: string, updates: Partial<Question>) => {
@@ -173,26 +218,36 @@ const FormBuilder: React.FC = () => {
 
           {/* Editor Questions Section */}
           <div className="space-y-6">
-            {form.questions.map((q) => (
-              <div 
-                key={q.id}
-                onClick={() => setActiveQuestionId(q.id)}
-                className={`bg-white rounded-2xl shadow-sm border border-gray-200 p-8 transition-all ${activeQuestionId === q.id ? 'ring-2 ring-[#003366]/5' : ''}`}
-              >
+            {form.questions.map((q, qIdx) => (
+              <React.Fragment key={q.id}>
+                {/* drop indicator above item */}
+                <div className={`h-1 transition-all ${dragOverId === q.id ? 'bg-[#003366] rounded-full my-2' : 'opacity-0'}`}></div>
+
+                <div 
+                  draggable
+                  onDragStart={(e: React.DragEvent<HTMLDivElement>) => handleDragStart(e, q.id)}
+                  onDragOver={handleDragOver}
+                  onDragEnter={(e: React.DragEvent<HTMLDivElement>) => handleDragEnter(e, q.id)}
+                  onDragLeave={(e: React.DragEvent<HTMLDivElement>) => handleDragLeave(e, q.id)}
+                  onDrop={(e: React.DragEvent<HTMLDivElement>) => handleDrop(e, q.id)}
+                  onDragEnd={() => { setDraggingId(null); setDragOverId(null); }}
+                  onClick={() => setActiveQuestionId(q.id)}
+                  className={`bg-white rounded-2xl shadow-sm border border-gray-200 p-8 transition-all ${activeQuestionId === q.id ? 'ring-2 ring-[#003366]/5' : ''} ${draggingId === q.id ? 'opacity-40 scale-95' : ''}`}
+                >
                 <div className="flex items-start gap-4 mb-6">
-                  <div className="text-gray-300 pt-3">
+                    <div className="text-gray-300 pt-3 cursor-grab">
                      <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M11 18c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2zm-2-8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6 4c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
                   </div>
                   <input 
                     type="text"
                     value={q.title}
-                    onChange={(e) => updateQuestion(q.id, { title: e.target.value })}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateQuestion(q.id, { title: e.target.value })}
                     className="flex-grow text-base bg-[#f8f9fa] px-5 py-3 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#003366]"
                     placeholder="Savol matni"
                   />
                   <select 
                     value={q.type}
-                    onChange={(e) => {
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
                       const type = e.target.value as QuestionType;
                       updateQuestion(q.id, { type });
                     }}
@@ -217,7 +272,7 @@ const FormBuilder: React.FC = () => {
                         <input 
                           type="text"
                           value={opt.text}
-                          onChange={(e) => {
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                             const newOpts = [...(q.options || [])];
                             newOpts[oIdx].text = e.target.value;
                             updateQuestion(q.id, { options: newOpts });
@@ -226,7 +281,7 @@ const FormBuilder: React.FC = () => {
                         />
                         <button 
                           onClick={() => {
-                            const newOpts = q.options?.filter(o => o.id !== opt.id);
+                            const newOpts = q.options?.filter((o) => o.id !== opt.id);
                             updateQuestion(q.id, { options: newOpts });
                           }}
                           className="text-red-300 hover:text-red-500 transition"
@@ -260,16 +315,43 @@ const FormBuilder: React.FC = () => {
                   </div>
                 </div>
               </div>
+              </React.Fragment>
             ))}
           </div>
 
-          <button 
-            onClick={addQuestion}
-            className="w-full mt-8 bg-white border border-dashed border-gray-300 py-5 rounded-xl text-sm font-bold text-gray-400 hover:text-[#003366] hover:border-[#003366] transition flex items-center justify-center gap-3"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
-            Yangi savol qo'shish
-          </button>
+          <div>
+            <button 
+              onClick={addQuestion}
+              className="w-full mt-8 bg-white border border-dashed border-gray-300 py-5 rounded-xl text-sm font-bold text-gray-400 hover:text-[#003366] hover:border-[#003366] transition flex items-center justify-center gap-3"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
+              Yangi savol qo'shish
+            </button>
+
+            {/* Drop zone at end of list to allow dropping after last item */}
+            <div
+              onDragOver={handleDragOver}
+              onDrop={(e: React.DragEvent<HTMLDivElement>) => {
+                // drop at end: use empty target and push to last
+                e.preventDefault();
+                const sourceId = e.dataTransfer.getData('text/plain');
+                if (!form || !sourceId) return;
+                const questions = [...form.questions];
+                const sourceIndex = questions.findIndex(q => q.id === sourceId);
+                if (sourceIndex === -1) return;
+                const [moved] = questions.splice(sourceIndex, 1);
+                questions.push(moved);
+                const updatedForm = { ...form, questions };
+                setForm(updatedForm);
+                formService.updateForm(form.id, updatedForm);
+                setDraggingId(null);
+                setDragOverId(null);
+              }}
+              className={`h-8 rounded-lg mt-4 ${dragOverId === 'end' ? 'bg-[#003366]' : 'bg-transparent'}`}
+              onDragEnter={(e: React.DragEvent<HTMLDivElement>) => setDragOverId('end')}
+              onDragLeave={(e: React.DragEvent<HTMLDivElement>) => setDragOverId(null)}
+            />
+          </div>
         </>
       ) : (
         /* Preview Mode - Fixed and Enhanced */
