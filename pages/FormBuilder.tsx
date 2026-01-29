@@ -11,7 +11,8 @@ const FormBuilder: React.FC = () => {
   const [form, setForm] = useState<Form | null>(null);
   const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
   const [responsesCount, setResponsesCount] = useState(0);
-  const [previewAnswers, setPreviewAnswers] = useState<Record<string, any>>({});
+  const [showSendModal, setShowSendModal] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   // View mode derived from query param 'mode'
   const viewMode = searchParams.get('mode') === 'preview' ? 'preview' : 'editor';
@@ -74,10 +75,37 @@ const FormBuilder: React.FC = () => {
     formService.updateForm(form.id, updatedForm);
   };
 
+  const publicLink = `${window.location.origin}/#/form/${id}`;
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(publicLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   if (!form) return <div className="p-10 text-center">Yuklanmoqda...</div>;
 
   return (
     <div className="max-w-4xl mx-auto pb-20">
+      {/* Top Header Controls */}
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex items-center gap-2 text-[#003366]">
+          <button onClick={() => navigate('/')} className="p-2 hover:bg-white rounded-full transition">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+          </button>
+          <span className="font-bold">{form.title || 'Sarlavhasiz shakl'}</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setShowSendModal(true)}
+            className="bg-[#003366] text-white px-6 py-2 rounded-lg font-bold hover:bg-[#002244] transition flex items-center gap-2 shadow-md"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
+            Yuborish
+          </button>
+        </div>
+      </div>
+
       {/* Navigation Tabs */}
       <div className="bg-[#f0f0f0] rounded-full p-1 mb-8 flex items-center justify-between shadow-sm border border-gray-200">
         <button 
@@ -141,13 +169,6 @@ const FormBuilder: React.FC = () => {
                 />
               </div>
             </div>
-
-            <div className="mt-12 flex items-center justify-center relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200"></div>
-              </div>
-              <span className="relative px-6 bg-white text-[10px] font-bold text-[#003366] tracking-[0.4em] uppercase">Forma Sarlavhasi</span>
-            </div>
           </div>
 
           {/* Editor Questions Section */}
@@ -167,7 +188,7 @@ const FormBuilder: React.FC = () => {
                     value={q.title}
                     onChange={(e) => updateQuestion(q.id, { title: e.target.value })}
                     className="flex-grow text-base bg-[#f8f9fa] px-5 py-3 rounded-xl focus:outline-none focus:ring-1 focus:ring-[#003366]"
-                    placeholder="Untitled Question"
+                    placeholder="Savol matni"
                   />
                   <select 
                     value={q.type}
@@ -188,10 +209,8 @@ const FormBuilder: React.FC = () => {
                   </button>
                 </div>
 
-                {/* Options List */}
                 {(q.type === QuestionType.RADIO || q.type === QuestionType.CHECKBOX || q.type === QuestionType.DROPDOWN) && (
                   <div className="pl-10 space-y-3">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Variantlar:</p>
                     {q.options?.map((opt, oIdx) => (
                       <div key={opt.id} className="flex items-center gap-3">
                         <span className="text-xs font-bold text-gray-400 w-4">{oIdx + 1}.</span>
@@ -216,50 +235,29 @@ const FormBuilder: React.FC = () => {
                         </button>
                       </div>
                     ))}
-                    
-                    <div className="flex items-center gap-3 mt-4">
-                      <div className="flex-grow bg-[#f8f9fa] rounded-lg px-5">
-                        <input 
-                          id={`new-opt-${q.id}`}
-                          type="text"
-                          className="w-full bg-transparent py-2.5 text-sm focus:outline-none"
-                          placeholder="Variant matni..."
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              const val = (e.target as HTMLInputElement).value;
-                              if (!val) return;
-                              const newOpts = [...(q.options || []), { id: crypto.randomUUID(), text: val }];
-                              updateQuestion(q.id, { options: newOpts });
-                              (e.target as HTMLInputElement).value = '';
-                            }
-                          }}
-                        />
-                      </div>
-                      <button 
-                        onClick={() => {
-                          const input = document.getElementById(`new-opt-${q.id}`) as HTMLInputElement;
-                          if (input && input.value) {
-                            const newOpts = [...(q.options || []), { id: crypto.randomUUID(), text: input.value }];
-                            updateQuestion(q.id, { options: newOpts });
-                            input.value = '';
-                          }
-                        }}
-                        className="bg-white border border-gray-200 text-xs font-bold py-2.5 px-8 rounded-lg hover:bg-gray-50 transition shadow-sm"
-                      >
-                        Qo'shish
-                      </button>
-                    </div>
+                    <button 
+                      onClick={() => {
+                        const newOpts = [...(q.options || []), { id: crypto.randomUUID(), text: 'Yangi variant' }];
+                        updateQuestion(q.id, { options: newOpts });
+                      }}
+                      className="ml-10 text-sm font-bold text-[#003366] hover:underline"
+                    >
+                      + Variant qo'shish
+                    </button>
                   </div>
                 )}
 
-                <div className="mt-8 flex items-center gap-4 pl-10">
-                  <button 
-                    onClick={() => updateQuestion(q.id, { required: !q.required })}
-                    className={`w-11 h-6 rounded-full relative transition-colors ${q.required ? 'bg-[#003366]' : 'bg-gray-300'}`}
-                  >
-                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${q.required ? 'translate-x-6' : 'translate-x-1'}`}></div>
-                  </button>
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Majburiy savol</span>
+                <div className="mt-8 flex items-center gap-4 pl-10 border-t border-gray-50 pt-6">
+                  <div className="flex-grow"></div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Majburiy</span>
+                    <button 
+                      onClick={() => updateQuestion(q.id, { required: !q.required })}
+                      className={`w-11 h-6 rounded-full relative transition-colors ${q.required ? 'bg-[#003366]' : 'bg-gray-300'}`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${q.required ? 'translate-x-6' : 'translate-x-1'}`}></div>
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -267,86 +265,115 @@ const FormBuilder: React.FC = () => {
 
           <button 
             onClick={addQuestion}
-            className="w-full mt-8 bg-white border border-gray-100 py-5 rounded-xl text-sm font-bold text-gray-700 hover:bg-gray-50 transition flex items-center justify-center gap-3 shadow-sm"
+            className="w-full mt-8 bg-white border border-dashed border-gray-300 py-5 rounded-xl text-sm font-bold text-gray-400 hover:text-[#003366] hover:border-[#003366] transition flex items-center justify-center gap-3"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" /></svg>
-            Savol qo'shish
+            Yangi savol qo'shish
           </button>
         </>
       ) : (
-        /* In-page Preview Mode */
+        /* Preview Mode - Fixed and Enhanced */
         <div className="animate-in fade-in duration-300">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 mb-6">
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">{form.title || 'Yangi forma'}</h1>
-            <p className="text-gray-500 whitespace-pre-wrap">{form.description || 'Forma tavsifi'}</p>
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 mb-6 border-t-[12px] border-t-[#003366]">
+            <h1 className="text-3xl font-bold text-gray-900 mb-4">{form.title || 'Untitled Form'}</h1>
+            <p className="text-gray-500 whitespace-pre-wrap">{form.description || 'Forma tavsifi yo\'q'}</p>
           </div>
 
           <div className="space-y-4">
             {form.questions.map((q) => (
-              <div key={q.id} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+              <div key={q.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
                 <label className="block text-lg font-medium text-gray-900 mb-6">
                   {q.title} {q.required && <span className="text-red-500">*</span>}
                 </label>
-
-                {(q.type === QuestionType.RADIO || q.type === QuestionType.CHECKBOX) && (
-                  <div className="space-y-3">
-                    {q.options?.map(opt => {
-                      const isSelected = q.type === QuestionType.RADIO 
-                        ? previewAnswers[q.id] === opt.text 
-                        : (previewAnswers[q.id] || []).includes(opt.text);
-                      
-                      return (
-                        <div 
-                          key={opt.id} 
-                          onClick={() => {
-                            if (q.type === QuestionType.RADIO) {
-                              setPreviewAnswers(prev => ({ ...prev, [q.id]: opt.text }));
-                            } else {
-                              const current = previewAnswers[q.id] || [];
-                              const next = isSelected 
-                                ? current.filter((v: string) => v !== opt.text)
-                                : [...current, opt.text];
-                              setPreviewAnswers(prev => ({ ...prev, [q.id]: next }));
-                            }
-                          }}
-                          className={`flex items-center gap-4 cursor-pointer p-4 rounded-xl border-2 transition-all ${isSelected ? 'border-[#003366] bg-blue-50/20' : 'border-gray-50 hover:border-gray-100'}`}
-                        >
-                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition ${isSelected ? 'border-[#003366]' : 'border-gray-300'}`}>
-                            {isSelected && <div className="w-2.5 h-2.5 rounded-full bg-[#003366]"></div>}
-                          </div>
-                          <span className={`text-sm font-medium ${isSelected ? 'text-[#003366]' : 'text-gray-700'}`}>{opt.text}</span>
+                
+                <div className="space-y-3">
+                  {(q.type === QuestionType.RADIO || q.type === QuestionType.CHECKBOX) && (
+                    <div className="space-y-2">
+                      {q.options?.map((opt) => (
+                        <div key={opt.id} className="flex items-center gap-3 p-3 bg-gray-50/50 rounded-xl border border-transparent">
+                          <div className={`w-5 h-5 border-2 flex items-center justify-center ${q.type === QuestionType.RADIO ? 'rounded-full' : 'rounded'} border-gray-300`}></div>
+                          <span className="text-sm text-gray-700">{opt.text}</span>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  )}
 
-                {q.type === QuestionType.SHORT_TEXT && (
-                  <input 
-                    type="text" 
-                    onChange={(e) => setPreviewAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
-                    className="w-full border-b border-gray-100 focus:border-[#003366] focus:outline-none pb-2 transition bg-transparent"
-                    placeholder="Javobingizni yozing..."
-                  />
-                )}
+                  {q.type === QuestionType.DROPDOWN && (
+                    <div className="w-full max-w-xs p-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-400 flex justify-between items-center">
+                      Tanlang...
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </div>
+                  )}
 
-                {q.type === QuestionType.PARAGRAPH && (
-                  <textarea 
-                    onChange={(e) => setPreviewAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
-                    className="w-full border-b border-gray-100 focus:border-[#003366] focus:outline-none pb-2 transition bg-transparent resize-none"
-                    placeholder="Javobingizni yozing..."
-                    rows={2}
-                  />
-                )}
+                  {q.type === QuestionType.SHORT_TEXT && (
+                    <div className="w-full border-b-2 border-gray-100 py-2 text-gray-300 italic text-sm">
+                      Qisqa javob matni
+                    </div>
+                  )}
+
+                  {q.type === QuestionType.PARAGRAPH && (
+                    <div className="w-full border-b-2 border-gray-100 py-2 text-gray-300 italic text-sm">
+                      Uzun javob matni
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
+          </div>
+          
+          <div className="mt-8 flex items-center justify-between px-2">
+             <button disabled className="bg-[#003366]/50 text-white px-8 py-3 rounded-xl font-bold cursor-not-allowed">Yuborish</button>
+             <button disabled className="text-sm font-bold text-gray-300 cursor-not-allowed">Formani tozalash</button>
+          </div>
+        </div>
+      )}
 
+      {/* Send Modal */}
+      {showSendModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowSendModal(false)}></div>
+          <div className="bg-white rounded-3xl w-full max-w-xl p-8 relative shadow-2xl animate-in zoom-in duration-200">
             <button 
-              className="w-full mt-8 bg-[#003366] text-white py-4 rounded-xl font-bold shadow-lg transition-all active:scale-[0.98]"
-              onClick={() => alert("Bu shunchaki oldindan ko'rish rejimi. Javoblar saqlanmaydi.")}
+              onClick={() => setShowSendModal(false)}
+              className="absolute top-6 right-6 p-2 text-gray-400 hover:bg-gray-100 rounded-full"
             >
-              Yuborish
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
+
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Formani yuborish</h2>
+            <p className="text-gray-500 mb-8 text-sm">Ushbu havolani nusxalang va so'rovnomada qatnashishi kerak bo'lgan insonlarga yuboring.</p>
+
+            <div className="space-y-6">
+              <div>
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-3">So'rovnoma havolasi</label>
+                <div className="flex items-center gap-3 bg-gray-50 p-4 rounded-2xl border border-gray-100 group">
+                  <div className="text-blue-500">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.828a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                  </div>
+                  <input 
+                    readOnly 
+                    value={publicLink} 
+                    className="bg-transparent flex-grow text-sm font-medium text-gray-600 outline-none truncate"
+                  />
+                  <button 
+                    onClick={copyToClipboard}
+                    className={`px-6 py-2 rounded-xl text-sm font-bold transition-all shadow-sm ${copied ? 'bg-green-500 text-white' : 'bg-[#003366] text-white hover:bg-[#002244]'}`}
+                  >
+                    {copied ? 'Nusxalandi!' : 'Nusxalash'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
+                <span className="text-xs text-gray-400">Javoblar real vaqtda yangilanadi.</span>
+                <button 
+                  onClick={() => setShowSendModal(false)}
+                  className="text-sm font-bold text-gray-400 hover:text-gray-900"
+                >
+                  Yopish
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

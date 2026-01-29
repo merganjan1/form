@@ -1,23 +1,22 @@
 
 import React from 'react';
-import { signInWithGoogle, logout, MockUser } from '../firebase';
+import { User } from 'firebase/auth';
+import { signInWithGoogle, logout } from '../firebase';
 import { Link } from 'react-router-dom';
 
 interface HeaderProps {
-  user: MockUser | null;
+  user: User | null;
 }
 
 const Header: React.FC<HeaderProps> = ({ user }) => {
   return (
     <header className="bg-[#002B5B] text-white px-8 py-3 flex items-center justify-between shadow-sm">
       <Link to="/" className="flex items-center gap-4">
-        <div className="w-10 h-10 flex items-center justify-center bg-white/10 rounded-full border border-white/20">
-           <div className="w-6 h-6 border-4 border-white rounded-full flex items-center justify-center">
-             <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-           </div>
+        <div className="w-10 h-10 flex items-center justify-center bg-white rounded-lg shadow-inner">
+           <span className="text-[#002B5B] font-black text-sm tracking-tighter">TIU</span>
         </div>
         <div>
-          <h1 className="text-lg font-bold leading-tight">Forma Platformasi</h1>
+          <h1 className="text-lg font-bold leading-tight">TIU form</h1>
           <p className="text-[10px] text-blue-200 font-medium">Osongina forma yarating va javoblarni yig'ing</p>
         </div>
       </Link>
